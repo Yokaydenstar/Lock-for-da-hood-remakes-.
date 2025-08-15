@@ -1,0 +1,173 @@
+loadstring([[
+-- Kayden.lockz - Instant Head Lock (Loadstring Version)
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- Lock settings
+local lockEnabled = false
+local lockedPlayer = nil
+local lockDistance = 1500
+
+-- UI Creation
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "KaydenLockzUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+local LockButton = Instance.new("TextButton")
+LockButton.Name = "Kayden.lockz"
+LockButton.Size = UDim2.new(0, 120, 0, 45)
+LockButton.Position = UDim2.new(0.5, -60, 0.92, -22.5)
+LockButton.BackgroundColor3 = Color3.new(0, 0, 0)
+LockButton.TextColor3 = Color3.new(1, 1, 1)
+LockButton.Text = "LOCK: OFF"
+LockButton.Font = Enum.Font.SourceSansBold
+LockButton.TextSize = 16
+LockButton.BorderSizePixel = 2
+LockButton.BorderColor3 = Color3.new(1, 1, 1)
+LockButton.AnchorPoint = Vector2.new(0.5, 0.5)
+
+-- Find closest player
+local function getClosestPlayer()
+    local closestPlayer = nil
+    local shortestDistance = lockDistance
+    local mousePos = UserInputService:GetMouseLocation()
+    local viewportPoint = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+    
+    if UserInputService.MouseEnabled then
+        viewportPoint = Vector2.new(mousePos.X, mousePos.Y)
+    end
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local character = player.Character
+            local head = character:FindFirstChild("Head")
+            
+            if head then
+                local headPosition, onScreen = Camera:WorldToViewportPoint(head.Position)
+                if onScreen then
+                    local distance = (Vector2.new(headPosition.X, headPosition.Y) - viewportPoint).magnitude
+                    if distance < shortestDistance then
+                        closestPlayer = player
+                        shortestDistance = distance
+                    end
+                end
+            end
+        end
+    end
+    
+    return closestPlayer
+end
+
+-- Force lock onto player
+local function hardLock(player)
+    if not player or not player.Character then return end
+    
+    local character = player.Character
+    local head = character:FindFirstChild("Head")
+    
+    if head then
+        lockedPlayer = player
+        lockEnabled = true
+        LockButton.Text = "LOCKED: "..string.sub(player.Name, 1, 8)
+        LockButton.BackgroundColor3 = Color3.new(0.8, 0, 0)
+        Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position)
+    end
+end
+
+-- Toggle lock
+LockButton.MouseButton1Click:Connect(function()
+    if lockEnabled then
+        lockEnabled = false
+        lockedPlayer = nil
+        LockButton.Text = "LOCK: OFF"
+        LockButton.BackgroundColor3 = Color3.new(0, 0, 0)
+    else
+        local target = getClosestPlayer()
+        if target then
+            hardLock(target)
+        else
+            LockButton.Text = "NO TARGET"
+            wait(0.7)
+            LockButton.Text = "LOCK: OFF"
+        end
+    end
+end)
+
+-- Strict camera enforcement
+RunService.RenderStepped:Connect(function()
+    if lockEnabled and lockedPlayer and lockedPlayer.Character then
+        local character = lockedPlayer.Character
+        local head = character:FindFirstChild("Head")
+        
+        if head then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position)
+        else
+            lockEnabled = false
+            LockButton.Text = "LOCK: OFF"
+            LockButton.BackgroundColor3 = Color3.new(0, 0, 0)
+        end
+    end
+end)
+
+-- Handle player leaving
+Players.PlayerRemoving:Connect(function(player)
+    if player == lockedPlayer then
+        lockEnabled = false
+        LockButton.Text = "LOCK: OFF"
+        LockButton.BackgroundColor3 = Color3.new(0, 0, 0)
+    end
+end)
+
+-- UI Setup
+ScreenGui.Parent = game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui")
+LockButton.Parent = ScreenGui
+
+-- Mobile adjustments
+if UserInputService.TouchEnabled then
+    LockButton.Size = UDim2.new(0, 140, 0, 55)
+    LockButton.TextSize = 18
+    LockButton.Position = UDim2.new(0.5, -70, 0.92, -27.5)
+end
+
+-- Protection
+if not is_sirhurt_closure and syn and syn.protect_gui then
+    syn.protect_gui(ScreenGui)
+end
+
+-- Draggable UI
+local dragging, dragInput, dragStart, startPos
+
+local function update(input)
+    local delta = input.Position - dragStart
+    LockButton.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+LockButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = LockButton.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+LockButton.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        update(input)
+    end
+end)
+]])()
